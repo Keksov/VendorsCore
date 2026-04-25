@@ -1,0 +1,7 @@
+downloads/
+sources/
+work/
+build-temp/
+bootstrap-install/
+fpc-main/
+fpc-main.zip

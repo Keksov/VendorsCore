@@ -1,0 +1,5 @@
+# Known file sizes for verification
+#
+
+# Windows-Developer-Tools-3.2.zip
+9450559
