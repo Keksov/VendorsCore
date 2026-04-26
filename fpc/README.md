@@ -9,10 +9,9 @@ SharedPasCore no longer carries shared FPC configs or bootstrap helpers. Product
 All Windows x64 helper scripts live under `scripts\win_x64`.
 
 ## Free Pascal 3.2.2 Windows Compiler Bundle (win32 and win64)
-**Лицензия**: GPL-2.0 / LGPL-2.1 (FPC)
-**Оригинал**: https://sourceforge.net/projects/freepascal/files/Win32/3.2.2/
+**License**: GPL-2.0 / LGPL-2.1 (FPC)
+**Original**: https://sourceforge.net/projects/freepascal/files/Win32/3.2.2/
 **GitHub Release Asset**: `fpc-3.2.2.win32.and.win64.exe`
-**Размер**: 93909874 bytes
 **MD5**: A249CF780E0EED1855960338669F1181
 **SHA1**: 952E49290569362CD6F7B966C0EACEBDB4BC6D58
 
