@@ -2,6 +2,10 @@
 
 This directory contains the Windows helper scripts and cached/generated files used to provision and build the Free Pascal toolchain for this repository.
 
+This is the canonical location of the repository FPC workflow. The staged compiler lives under `fpc-main`, release/bootstrap helpers live under `scripts\win_x64`, and product build scripts are expected to reference the vendor toolchain from here.
+
+SharedPasCore no longer carries shared FPC configs or bootstrap helpers. Product-local compiler configs should live next to each product's own `build_x64.bat` entry point.
+
 All Windows x64 helper scripts live under `scripts\win_x64`.
 
 ## Free Pascal 3.2.2 Windows Compiler Bundle (win32 and win64)

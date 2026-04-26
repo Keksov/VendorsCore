@@ -12,6 +12,7 @@ call ".\common.bat"
 if "%~1"=="" goto :usage
 
 set "FORCE_SYNC=0"
+set "SYNC_DIR_OVERRIDE="
 
 if /I "%~1"=="bootstrap" (
     set "SYNC_KIND=bootstrap"
@@ -31,19 +32,28 @@ echo [fpc-source-sync] Error: unknown source set %~1
 goto :usage
 
 :sync_selected
-if not "%~2"=="" (
-    if /I "%~2"=="--force" (
+shift
+
+:parse_args
+if "%~1"=="" goto :args_done
+
+if /I "%~1"=="--force" (
         set "FORCE_SYNC=1"
-    ) else (
-        echo [fpc-source-sync] Error: unknown argument %~2
-        goto :usage
-    )
+        shift
+        goto :parse_args
 )
 
-if not "%~3"=="" (
+if defined SYNC_DIR_OVERRIDE (
     echo [fpc-source-sync] Error: too many arguments.
     goto :usage
 )
+
+set "SYNC_DIR_OVERRIDE=%~1"
+shift
+goto :parse_args
+
+:args_done
+if defined SYNC_DIR_OVERRIDE set "SYNC_DIR=%SYNC_DIR_OVERRIDE%"
 
 where git >nul 2>nul
 if errorlevel 1 (
@@ -113,7 +123,7 @@ popd >nul
 goto :fail
 
 :usage
-echo Usage: fpc_source_sync.bat bootstrap^|main [--force]
+echo Usage: fpc_source_sync.bat bootstrap^|main [--force] [target-dir]
 goto :fail
 
 :success

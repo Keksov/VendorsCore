@@ -1,1 +1,2 @@
-downloads
+downloads/*
+!downloads/Windows-Developer-Tools-3.2.zip.digest

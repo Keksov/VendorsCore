@@ -30,7 +30,10 @@ if errorlevel 1 goto :fail
 call ".\fpc_bootstrap_build.bat"
 if errorlevel 1 goto :fail
 
-call ".\fpc_source_sync.bat" main --force
+call :resolve_source_snapshot
+if errorlevel 1 goto :fail
+
+call :prepare_main_source_tree
 if errorlevel 1 goto :fail
 
 for %%I in ("%GNUMAKE_EXE%") do set "GNUMAKE_EXE_ABS=%%~fI"
@@ -142,6 +145,9 @@ if not exist "%FPC_MAIN_PPC_EXE%" (
 )
 
 if "%SKIP_PACK%"=="1" (
+    call ".\fpc_source_pack.bat" "%FPC_SOURCE_SNAPSHOT_DIR%" "%FPC_BIN_TARGET_DIR_ABS%"
+    if errorlevel 1 goto :fail
+
     echo [fpc-main-build] Ready: %FPC_BIN_TARGET_DIR_ABS%
     popd >nul
     exit /b 0
@@ -152,6 +158,104 @@ if errorlevel 1 goto :fail
 
 echo [fpc-main-build] Ready: %FPC_BIN_TARGET_DIR_ABS%
 popd >nul
+exit /b 0
+
+:resolve_source_snapshot
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Date -Format 'yyyyMMdd'"`) do set "FPC_SOURCE_SNAPSHOT_STAMP=%%I"
+if not defined FPC_SOURCE_SNAPSHOT_STAMP (
+    echo [fpc-main-build] Error: failed to resolve the source snapshot date stamp.
+    exit /b 1
+)
+
+set "FPC_SOURCE_SNAPSHOT_NAME=sources-%FPC_SOURCE_SNAPSHOT_STAMP%"
+set "FPC_SOURCE_SNAPSHOT_DIR=%SOURCES_DIR%\%FPC_SOURCE_SNAPSHOT_NAME%"
+exit /b 0
+
+:prepare_main_source_tree
+call ".\fpc_source_sync.bat" main --force "%FPC_SOURCE_SNAPSHOT_DIR%"
+if errorlevel 1 exit /b 1
+
+set "FPC_SOURCE_SNAPSHOT_COMMIT="
+for /f "usebackq delims=" %%I in (`git -C "%FPC_SOURCE_SNAPSHOT_DIR%" rev-parse HEAD`) do set "FPC_SOURCE_SNAPSHOT_COMMIT=%%I"
+if not defined FPC_SOURCE_SNAPSHOT_COMMIT (
+    echo [fpc-main-build] Error: failed to resolve the commit for %FPC_SOURCE_SNAPSHOT_DIR%
+    exit /b 1
+)
+
+if exist "%FPC_MAIN_SOURCE_DIR%\.git" goto :update_main_source_tree
+
+if exist "%FPC_MAIN_SOURCE_DIR%" (
+    echo [fpc-main-build] Error: %FPC_MAIN_SOURCE_DIR% exists but is not a git worktree.
+    exit /b 1
+)
+
+echo [fpc-main-build] Initializing main source tree from %FPC_SOURCE_SNAPSHOT_NAME%...
+call :mirror_directory "%FPC_SOURCE_SNAPSHOT_DIR%" "%FPC_MAIN_SOURCE_DIR%"
+exit /b %ERRORLEVEL%
+
+:update_main_source_tree
+echo [fpc-main-build] Updating main source tree to %FPC_SOURCE_SNAPSHOT_COMMIT%...
+pushd "%FPC_MAIN_SOURCE_DIR%" >nul
+if errorlevel 1 (
+    echo [fpc-main-build] Error: failed to enter %FPC_MAIN_SOURCE_DIR%
+    exit /b 1
+)
+
+git fetch --depth 1 origin "%FPC_MAIN_SOURCE_REF%"
+if errorlevel 1 goto :update_main_source_tree_fail
+
+set "FPC_MAIN_FETCH_HEAD="
+for /f "usebackq delims=" %%I in (`git rev-parse FETCH_HEAD`) do set "FPC_MAIN_FETCH_HEAD=%%I"
+if not defined FPC_MAIN_FETCH_HEAD (
+    echo [fpc-main-build] Error: failed to resolve FETCH_HEAD for %FPC_MAIN_SOURCE_DIR%
+    goto :update_main_source_tree_fail
+)
+
+git checkout -f "%FPC_MAIN_SOURCE_REF%"
+if errorlevel 1 goto :update_main_source_tree_fail
+
+if /I "%FPC_MAIN_FETCH_HEAD%"=="%FPC_SOURCE_SNAPSHOT_COMMIT%" (
+    git reset --hard "%FPC_MAIN_FETCH_HEAD%"
+    if errorlevel 1 goto :update_main_source_tree_fail
+
+    git clean -fdx
+    if errorlevel 1 goto :update_main_source_tree_fail
+
+    popd >nul
+    exit /b 0
+)
+
+popd >nul
+echo [fpc-main-build] Warning: fetched main commit %FPC_MAIN_FETCH_HEAD% differs from %FPC_SOURCE_SNAPSHOT_COMMIT%; refreshing main from the dated snapshot.
+
+rd /s /q "%FPC_MAIN_SOURCE_DIR%" >nul 2>nul
+if exist "%FPC_MAIN_SOURCE_DIR%" (
+    echo [fpc-main-build] Error: failed to remove %FPC_MAIN_SOURCE_DIR%
+    exit /b 1
+)
+
+call :mirror_directory "%FPC_SOURCE_SNAPSHOT_DIR%" "%FPC_MAIN_SOURCE_DIR%"
+exit /b %ERRORLEVEL%
+
+:update_main_source_tree_fail
+popd >nul
+exit /b 1
+
+:mirror_directory
+for %%I in ("%~2") do set "MIRROR_PARENT=%%~dpI"
+if not exist "%MIRROR_PARENT%" mkdir "%MIRROR_PARENT%"
+if errorlevel 1 (
+    echo [fpc-main-build] Error: failed to create %MIRROR_PARENT%
+    exit /b 1
+)
+
+robocopy "%~1" "%~2" /MIR /COPY:DAT /DCOPY:DAT /R:2 /W:1 /NFL /NDL /NJH /NJS /NP >nul
+set "ROBOCOPY_EXIT=%ERRORLEVEL%"
+if %ROBOCOPY_EXIT% geq 8 (
+    echo [fpc-main-build] Error: failed to mirror %~1 into %~2
+    exit /b 1
+)
+
 exit /b 0
 
 :usage
